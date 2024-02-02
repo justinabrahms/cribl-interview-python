@@ -7,9 +7,15 @@ Supports reading log files from a given directory, as well as basic keyword sear
 ```bash
 # Return the last 10 lines of $ROOT_DIRECTORY/big-text-file.txt
 $ curl -v http://localhost:8000/logs/big-text-file.txt?max_results=10
+{
+ "lines": ["..."]
+}
 
 # Return the last 10 lines of $ROOT_DIRECTORY/myfile.txt that match "test" or "foo"
 $ curl -v http://localhost:8000/logs/myfile.txt?keywords=test&keywords=foo
+{
+ "lines": ["..."]
+}
 ```
 
 ## Running the system
