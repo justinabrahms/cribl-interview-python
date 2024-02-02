@@ -1,5 +1,5 @@
 from functools import lru_cache
-from fastapi import FastAPI, Response, status, Depends
+from fastapi import FastAPI, Response, status, Depends, Query
 from typing import Union, Annotated, Callable
 from typing.io import TextIO
 import os
@@ -29,8 +29,8 @@ def read_file(
         response: Response,
         settings: Annotated[Settings, Depends(get_settings)],
         relative_path: str,
-        max_results: Union[int, None] = None,
-        keywords: Union[list[str], None] = None
+        max_results: Union[int, None] = 10,
+        keywords: Annotated[Union[list[str], None], Query()] = None
 ):
     normalized_path = os.path.abspath(os.path.join(settings.root_directory, relative_path))
 
