@@ -32,7 +32,6 @@ def read_file(
         max_results: Union[int, None] = None,
         keywords: Union[list[str], None] = None
 ):
-    print("Relative path: ", relative_path)
     normalized_path = os.path.abspath(os.path.join(settings.root_directory, relative_path))
 
     max_results = min(
@@ -42,9 +41,7 @@ def read_file(
     )
 
 
-    print("Normalized path: ", normalized_path)
-    print("Max results: ", max_results)
-    print("Keywords: ", keywords)
+    print({'relative': relative_path, 'absolute': normalized_path, 'results': max_results, 'keywords': keywords})
 
     try:
         lines = get_relevant_lines_from_file(normalized_path, max_results, keywords)
@@ -65,13 +62,11 @@ def read_file_in_reverse(f: TextIO, chunk_size:int=1000):
 
     current_chunk = ""
     file_size = current_position = f.seek(0, os.SEEK_END)
-    print("Total size: ", file_size)
     while current_position > 0:
         # We can only seek relative to the start of the file for text files, so
         # keep a running count by making it relative to the old
         # current_position.
         seek_to = max(current_position-chunk_size, 0)
-        print("Seeking to: ", seek_to)
         current_position = f.seek(seek_to)
         # exit if current_position == 0?
         nearer_to_top_of_file = f.read(chunk_size)
