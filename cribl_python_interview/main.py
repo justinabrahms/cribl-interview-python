@@ -47,13 +47,7 @@ def read_file(
     print("Keywords: ", keywords)
 
     try:
-        with open(normalized_path) as f:
-            # Note, we need to consume the generator while the file is still opened.
-            line_generator = read_file_in_reverse(f)
-            if keywords is not None and len(keywords) != 0:
-                kw_tree = keywords_to_tree(keywords)
-                line_generator = filter(contains_keywords(kw_tree), line_generator)
-            lines = list(itertools.islice(line_generator, max_results))
+        lines = get_relevant_lines_from_file(normalized_path, max_results, keywords)
 
     except OSError:
         response.status_code = status.HTTP_404_NOT_FOUND
@@ -144,3 +138,15 @@ def contains_keywords(keyword_tree: KWTree) -> Callable[[str], bool]:
         return False
 
     return check
+
+
+# Main logic, devoid of HTTP semantics, which makes this easier to test or benchmark.
+def get_relevant_lines_from_file(path: str | os.PathLike, max_results: int, keywords: list[str]) -> list[str]:
+    with open(path) as f:
+        # Note, we need to consume the generator while the file is still opened.
+        line_generator = read_file_in_reverse(f)
+        if keywords is not None and len(keywords) != 0:
+            kw_tree = keywords_to_tree(keywords)
+            line_generator = filter(contains_keywords(kw_tree), line_generator)
+
+        return list(itertools.islice(line_generator, max_results))
