@@ -42,6 +42,11 @@ def test_keyword_not_contains():
     results = list(filter(contains_keywords(keywords_to_tree(["nope"])), lines))
     assert results == []
 
+def test_list_empty():
+    lines = [""]
+    results = list(filter(contains_keywords(keywords_to_tree(["nope"])), lines))
+    assert results == []
+
 def test_single_char():
     lines = ["test"]
     results = list(filter(contains_keywords(keywords_to_tree(["t"])), lines))
