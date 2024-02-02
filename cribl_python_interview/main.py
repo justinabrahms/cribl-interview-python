@@ -1,9 +1,11 @@
 from functools import lru_cache
 from fastapi import FastAPI, Response, status, Depends
 from typing import Union, Annotated
+from typing.io import TextIO
 import os
 from pydantic_settings import BaseSettings
 import os.path
+import itertools
 
 app = FastAPI()
 
@@ -40,12 +42,40 @@ def read_file(
 
     try:
         with open(normalized_path) as f:
-            reversed_lines = f.read().splitlines()[::-1]
+            # Note, we need to consume the generator while the file is still opened.
+            lines = list(itertools.islice(read_file_in_reverse(f), max_results))
+
     except OSError:
         response.status_code = status.HTTP_404_NOT_FOUND
         return
 
 
     return {
-        "lines": reversed_lines[:max_results],
+        "lines": lines,
     }
+
+
+def read_file_in_reverse(f: TextIO, chunk_size:int=1000):
+    """Yield lines in reverse order, reading [chunk_size] portions at a time to
+    reduce memory footprint. """
+
+    current_chunk = ""
+    file_size = current_position = f.seek(0, os.SEEK_END)
+    print("Total size: ", file_size)
+    while current_position > 0:
+        # We can only seek relative to the start of the file for text files, so
+        # keep a running count by making it relative to the old
+        # current_position.
+        seek_to = max(current_position-chunk_size, 0)
+        print("Seeking to: ", seek_to)
+        current_position = f.seek(seek_to)
+        # exit if current_position == 0?
+        nearer_to_top_of_file = f.read(chunk_size)
+        current_chunk = nearer_to_top_of_file + current_chunk
+        lines = current_chunk.splitlines()
+        leftover = lines[0]
+        for to_yield in reversed(lines[1:]):
+            yield to_yield
+            current_chunk = leftover
+    # Get what's dangling, which will be the final line at the top.
+    yield current_chunk
