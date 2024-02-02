@@ -10,6 +10,7 @@ python = "^3.10"
 fastapi = "^0.109.0"
 uvicorn = "^0.27.0.post1"
 pydantic-settings = "^2.1.0"
+mypy = "^1.8.0"
 
 
 [tool.poetry.group.dev.dependencies]

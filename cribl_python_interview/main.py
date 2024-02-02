@@ -1,6 +1,6 @@
 from functools import lru_cache
 from fastapi import FastAPI, Response, status, Depends
-from typing import Union, Annotated
+from typing import Union, Annotated, Callable
 from typing.io import TextIO
 import os
 from pydantic_settings import BaseSettings
@@ -29,12 +29,18 @@ def read_file(
         response: Response,
         settings: Annotated[Settings, Depends(get_settings)],
         relative_path: str,
-        max_results: Union[int, None] = 10,
+        max_results: Union[int, None] = None,
         keywords: Union[list[str], None] = None
 ):
     print("Relative path: ", relative_path)
     normalized_path = os.path.abspath(os.path.join(settings.root_directory, relative_path))
-    max_results = min(max_results, settings.max_results)
+
+    max_results = min(
+        # Convince the type checker that this is valid.
+        max_results or settings.max_results,
+        settings.max_results
+    )
+
 
     print("Normalized path: ", normalized_path)
     print("Max results: ", max_results)
@@ -43,7 +49,11 @@ def read_file(
     try:
         with open(normalized_path) as f:
             # Note, we need to consume the generator while the file is still opened.
-            lines = list(itertools.islice(read_file_in_reverse(f), max_results))
+            line_generator = read_file_in_reverse(f)
+            if keywords is not None and len(keywords) != 0:
+                kw_tree = keywords_to_tree(keywords)
+                line_generator = filter(contains_keywords(kw_tree), line_generator)
+            lines = list(itertools.islice(line_generator, max_results))
 
     except OSError:
         response.status_code = status.HTTP_404_NOT_FOUND
@@ -79,3 +89,58 @@ def read_file_in_reverse(f: TextIO, chunk_size:int=1000):
             current_chunk = leftover
     # Get what's dangling, which will be the final line at the top.
     yield current_chunk
+
+KWTree = dict[str, Union['KWTree', bool]]
+
+def keywords_to_tree(keywords: list[str]) -> KWTree:
+    """
+    Convert a list of keywords to a tree structure with one character per
+    level. This will allow us to make one pass through each line, looking for a
+    match
+    """
+    tree: KWTree = {}
+
+    # TODO: We could optimize this by making the structure handle word stems, so
+    # instead of one character per level, we have unique substrings at each
+    # level for the given set of keywords.
+    for keyword in keywords:
+        current_branch = tree
+        kw_len = len(keyword)
+        for i, char in enumerate(keyword):
+            if char not in current_branch:
+                current_branch[char] = {}
+            if i+1 == kw_len:
+                # ending of keyword
+                current_branch[char]['terminal'] = True
+            else:
+                current_branch = current_branch[char]
+    return tree
+
+def contains_keywords(keyword_tree: KWTree) -> Callable[[str], bool]:
+    """
+    Returns a function suitable for calling filter() on, which returns True if a
+    line matches one of the keywords.
+    """
+    def check(line: str) -> bool:
+        in_progress: list[KWTree] = []
+        for char in line:
+            # If we've reached a terminal node, we've matched.
+
+            if keyword_tree.get(char, {}).get('terminal', False):
+                return True
+
+            # Check for in-progress matches. Keep a running list of "found"
+            # stems to look through next time.
+            keep_looking_for = []
+            for entry in in_progress:
+                if char in entry:
+                    if entry[char].get('terminal'):
+                        return True
+                    keep_looking_for.append(entry[char])
+            in_progress = keep_looking_for
+
+            if keyword_tree.get(char):
+                in_progress.append(keyword_tree[char])
+        return False
+
+    return check
