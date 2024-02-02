@@ -9,7 +9,12 @@ readme = "README.md"
 python = "^3.10"
 fastapi = "^0.109.0"
 uvicorn = "^0.27.0.post1"
+pydantic-settings = "^2.1.0"
 
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+httpx = "^0.26.0"
 
 [build-system]
 requires = ["poetry-core"]
