@@ -55,10 +55,11 @@ def read_file(
         "lines": lines,
     }
 
-
 def read_file_in_reverse(f: TextIO, chunk_size:int=1000):
     """Yield lines in reverse order, reading [chunk_size] portions at a time to
     reduce memory footprint. """
+    if chunk_size <= 4:
+        print("The chunk size is too small. This means that we cannot support all multi-byte utf-8 characters.")
 
     current_chunk = ""
     file_size = current_position = f.seek(0, os.SEEK_END)
@@ -66,11 +67,29 @@ def read_file_in_reverse(f: TextIO, chunk_size:int=1000):
         # We can only seek relative to the start of the file for text files, so
         # keep a running count by making it relative to the old
         # current_position.
+        # import pdb; pdb.set_trace()
         seek_to = max(current_position-chunk_size, 0)
         current_position = f.seek(seek_to)
         # exit if current_position == 0?
         nearer_to_top_of_file = f.read(chunk_size)
-        current_chunk = nearer_to_top_of_file + current_chunk
+
+        # Some bytes in utf-8 are "continuation bytes" which mean we've sliced
+        # something mid-character. The "don't split here" bytes begin with
+        # b'10', so that puts 0x80 and 0xc0 as the upper and lower bounds
+        # (inclusive). If this happens, adjust our seek window appropriately and
+        # re-read.
+        #
+        # More details at https://en.wikipedia.org/wiki/UTF-8#Encoding_process
+        bytes_to_offset = 0
+        while len(nearer_to_top_of_file) > 0 and nearer_to_top_of_file[0] >= 0x80 and nearer_to_top_of_file[0] <= 0xc0:
+            bytes_to_offset += 1
+            nearer_to_top_of_file = nearer_to_top_of_file[1:]
+
+        if bytes_to_offset > 0:
+            current_position += bytes_to_offset
+            f.seek(seek_to+bytes_to_offset)
+
+        current_chunk = nearer_to_top_of_file.decode('utf-8') + current_chunk
         lines = current_chunk.splitlines()
         leftover = lines[0]
         for to_yield in reversed(lines[1:]):
@@ -137,7 +156,7 @@ def contains_keywords(keyword_tree: KWTree) -> Callable[[str], bool]:
 
 # Main logic, devoid of HTTP semantics, which makes this easier to test or benchmark.
 def get_relevant_lines_from_file(path: str | os.PathLike, max_results: int, keywords: list[str]) -> list[str]:
-    with open(path) as f:
+    with open(path, 'rb') as f:
         # Note, we need to consume the generator while the file is still opened.
         line_generator = read_file_in_reverse(f)
         if keywords is not None and len(keywords) != 0:
