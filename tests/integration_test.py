@@ -1,10 +1,12 @@
 from cribl_python_interview.main import app, get_settings, Settings
 from fastapi.testclient import TestClient
+import os.path
 
 client = TestClient(app)
 
 def settings_override():
-    return Settings(root_directory="./../") # not relative to test directory
+    root_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../')
+    return Settings(root_directory=root_dir) # not relative to test directory
 
 app.dependency_overrides[get_settings] = settings_override
 
