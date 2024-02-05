@@ -137,7 +137,7 @@ def contains_keywords(keyword_tree: KWTree) -> Callable[[str], bool]:
 
 # Main logic, devoid of HTTP semantics, which makes this easier to test or benchmark.
 def get_relevant_lines_from_file(path: str | os.PathLike, max_results: int, keywords: list[str]) -> list[str]:
-    with open(path) as f:
+    with open(path, 'rb') as f:
         # Note, we need to consume the generator while the file is still opened.
         line_generator = read_file_in_reverse(f)
         if keywords is not None and len(keywords) != 0:
